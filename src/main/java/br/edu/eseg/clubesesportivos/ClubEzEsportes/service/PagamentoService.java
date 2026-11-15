@@ -12,36 +12,18 @@ import java.time.LocalTime;
 
 @Service
 public class PagamentoService {
-
     private final PagamentoRepository pagamentoRepository;
     private final MatriculaRepository matriculaRepository;
 
-    public PagamentoService(
-            PagamentoRepository pagamentoRepository,
-            MatriculaRepository matriculaRepository) {
+    public PagamentoService(PagamentoRepository pagamentoRepository, MatriculaRepository matriculaRepository) {
         this.pagamentoRepository = pagamentoRepository;
         this.matriculaRepository = matriculaRepository;
     }
 
-    // Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
-    public record Entrada(
-            String codigoLegado,
-            LocalDate vencimento,
-            LocalDate dataPagamento,
-            BigDecimal valor,
-            StatusPagamento status,
-            Long matriculaId
-    ) {}
+    //Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
+    public record Entrada(String codigoLegado, LocalDate vencimento, LocalDate dataPagamento, BigDecimal valor, StatusPagamento status, Long matriculaId) {}
 
-    public record Saida(
-            Long id,
-            String codigoLegado,
-            LocalDate vencimento,
-            LocalDate dataPagamento,
-            BigDecimal valor,
-            StatusPagamento status,
-            Long matriculaId
-    ) {}
+    public record Saida(Long id, String codigoLegado, LocalDate vencimento, LocalDate dataPagamento, BigDecimal valor, StatusPagamento status, Long matriculaId) {}
 
     private void validar(Entrada dados) {
         if (dados == null) throw new IllegalArgumentException("Dados obrigatórios.");
@@ -59,22 +41,13 @@ public class PagamentoService {
         entidade.setStatus(dados.status());
         Matricula matricula = null;
         if (dados.matriculaId() != null) {
-            matricula = matriculaRepository.findById(dados.matriculaId())
-                    .orElseThrow(() -> new NoSuchElementException("Matricula não encontrado: " + dados.matriculaId()));
+            matricula = matriculaRepository.findById(dados.matriculaId()).orElseThrow(() -> new NoSuchElementException("Matricula não encontrado: " + dados.matriculaId()));
         }
         entidade.setMatricula(matricula);
     }
 
     private Saida converter(Pagamento entidade) {
-        return new Saida(
-                entidade.getId(),
-                entidade.getCodigoLegado(),
-                entidade.getVencimento(),
-                entidade.getDataPagamento(),
-                entidade.getValor(),
-                entidade.getStatus(),
-                entidade.getMatricula() == null ? null : entidade.getMatricula().getId()
-        );
+        return new Saida(entidade.getId(), entidade.getCodigoLegado(), entidade.getVencimento(), entidade.getDataPagamento(), entidade.getValor(), entidade.getStatus(), entidade.getMatricula() == null ? null : entidade.getMatricula().getId());
     }
 
     @Transactional
@@ -91,23 +64,40 @@ public class PagamentoService {
 
     @Transactional(readOnly = true)
     public Saida buscarPorId(Long id) {
-        Pagamento entidade = pagamentoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
+        Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
         return converter(entidade);
+    }
+
+    private void validarTransicaoStatus(StatusPagamento atual, StatusPagamento novo) {
+        if (atual == novo) {
+            return;
+        }
+        boolean permitido = switch (atual) {
+            case PENDENTE -> novo == StatusPagamento.ATRASADO || novo == StatusPagamento.PAGO;
+            case ATRASADO -> novo == StatusPagamento.PAGO;
+            case PAGO -> novo == StatusPagamento.ESTORNADO;
+            case ESTORNADO -> false;
+        };
+        if (!permitido) {
+            throw new IllegalArgumentException("Transição de pagamento não permitida: " + atual + " para " + novo);
+        }
     }
 
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
-        Pagamento entidade = pagamentoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
+        Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
+        //Verifica se os dados recebidos são válidos
+        validar(dados);
+        //Verifica se a mudança de status é permitida
+        validarTransicaoStatus(entidade.getStatus(), dados.status());
+        //Atualiza os dados do pagamento
         preencher(entidade, dados);
         return converter(pagamentoRepository.saveAndFlush(entidade));
     }
 
     @Transactional
     public void excluir(Long id) {
-        Pagamento entidade = pagamentoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
+        Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
         pagamentoRepository.delete(entidade);
         pagamentoRepository.flush();
     }

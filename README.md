@@ -1,88 +1,52 @@
-# ClubEzEsportes
+### Estratégia de migração dos dados legados
 
-Sistema web para gerenciamento de clubes esportivos, desenvolvido como projeto individual da disciplina de Programação Web da ESEG, no segundo semestre de 2026.
+A modernização do ClubEzEsportes prevê a transferência dos dados do sistema legado para o novo modelo relacional implementado com Spring Data JPA e Hibernate.
 
-## 1. Objetivo
+A migração deverá ocorrer em etapas controladas, garantindo a integridade dos registros e preservando a identificação de sua origem.
 
-O ClubEzEsportes tem como objetivo modernizar um sistema legado de administração de clubes esportivos, melhorando a organização dos dados, os relacionamentos entre entidades, as regras de negócio e a persistência das informações.
+**1. Identificação e mapeamento**
 
-O sistema contempla funcionalidades de gerenciamento de clubes, sócios, planos, matrículas, pagamentos, modalidades esportivas, equipes, treinos, eventos e operações comerciais.
+Os campos das tabelas legadas deverão ser analisados e associados às entidades do novo sistema.
 
-## 2. Tecnologias utilizadas
+As entidades que possuem o atributo `codigoLegado` poderão utilizar esse campo para preservar a identificação dos registros originais e facilitar a rastreabilidade durante a migração.
 
-- Java 21
-- Spring Boot 4.1.2
-- Spring MVC
-- Spring Data JPA
-- Hibernate
-- H2 Database
-- Maven
+**2. Preparação dos dados**
 
-O projeto também possui dependências de Thymeleaf, destinadas à implementação da interface web.
+Antes da importação, deverão ser verificadas possíveis inconsistências, incluindo:
 
-## 3. Estrutura do projeto
+- Registros duplicados.
+- Campos obrigatórios não preenchidos.
+- Referências a registros inexistentes.
+- Valores incompatíveis com os tipos definidos no novo banco.
+- Status antigos que não correspondam aos estados aceitos pelo sistema.
 
-O código-fonte está organizado em quatro pacotes principais:
+Registros inconsistentes deverão ser tratados ou separados para revisão antes da importação.
 
-- `model`: entidades JPA e enumerações do sistema.
-- `repository`: interfaces responsáveis pelo acesso ao banco de dados.
-- `service`: regras de negócio, validações e operações de persistência.
-- `controller`: endpoints REST e tratamento de requisições HTTP.
+**3. Importação por dependências**
 
-## 4. Funcionalidades implementadas
+A ordem de importação deverá respeitar os relacionamentos e as chaves estrangeiras.
 
-O backend contém 17 entidades:
+Por exemplo, clubes, sócios e planos precisam estar disponíveis antes da importação das matrículas que os referenciam. Da mesma forma, pagamentos dependem das respectivas matrículas.
 
-1. Clube
-2. Socio
-3. Plano
-4. Matricula
-5. Pagamento
-6. Modalidade
-7. ClubeModalidade
-8. Equipe
-9. InscricaoModalidade
-10. ParticipacaoEquipe
-11. Treino
-12. PartidaEvento
-13. ProdutoLoja
-14. VendaLoja
-15. IndicadorMensal
-16. Perfil
-17. Usuario
+Os identificadores do banco antigo deverão ser mapeados para os identificadores utilizados no novo banco.
 
-Foram implementadas operações de cadastro, consulta, atualização e exclusão por meio de Controllers REST, Services e Repositories.
+**4. Validação após a migração**
 
-O sistema utiliza associações JPA para relacionar os registros, incluindo Matrícula com Clube, Sócio e Plano, e Pagamento com Matrícula.
+Após cada etapa de importação, deverão ser realizadas verificações de:
 
-## 5. Banco de dados
+- Quantidade de registros importados.
+- Unicidade dos campos que possuem restrições.
+- Integridade das chaves estrangeiras.
+- Correspondência entre registros antigos e novos.
+- Consistência dos estados e valores armazenados.
 
-O sistema utiliza o banco relacional H2, configurado com persistência em arquivo.
+**5. Segurança e recuperação**
 
-Configuração principal:
+A migração deverá ser testada inicialmente em um banco separado, preservando uma cópia dos dados originais.
 
-- Banco: H2
-- Schema: `APP`
-- Arquivo: `./database/ClubData`
-- Usuário: `sa`
-- Senha: vazia, para desenvolvimento local
+Em caso de falhas, será necessário corrigir as inconsistências e repetir a importação no ambiente de testes antes de aplicar o processo ao banco de destino.
 
-As configurações estão no arquivo:
-
-`src/main/resources/application.properties`
-
-O Hibernate está configurado com `spring.jpa.hibernate.ddl-auto=update` para atualizar a estrutura do banco durante o desenvolvimento.
-
-### Script SQL
-
-O arquivo `src/main/resources/db/schema.sql` contém os comandos de criação das 17 tabelas e seus relacionamentos.
-
-O script foi executado em um banco H2 separado, chamado `TesteSchema`, e a consulta ao catálogo do banco confirmou a existência das 17 tabelas.
-
-O script deve ser executado apenas em um banco vazio. Ele não deve ser aplicado diretamente sobre o banco principal já inicializado.
-
-O script representa a estrutura atual do banco. A migração dos dados legados constitui uma atividade distinta.
-
+**Situação atual:** o arquivo `src/main/resources/db/schema.sql` foi executado com sucesso em um banco H2 vazio, criando as 17 tabelas e seus relacionamentos. A importação efetiva dos dados legados ainda não foi implementada ou executada. Esta seção documenta a estratégia prevista para essa atividade.
 ## 6. Como executar
 
 ### Pré-requisitos

@@ -12,37 +12,20 @@ import java.time.LocalTime;
 
 @Service
 public class ParticipacaoEquipeService {
-
     private final ParticipacaoEquipeRepository participacaoEquipeRepository;
     private final EquipeRepository equipeRepository;
     private final InscricaoModalidadeRepository inscricaoModalidadeRepository;
 
-    public ParticipacaoEquipeService(
-            ParticipacaoEquipeRepository participacaoEquipeRepository,
-            EquipeRepository equipeRepository,
-            InscricaoModalidadeRepository inscricaoModalidadeRepository) {
+    public ParticipacaoEquipeService(ParticipacaoEquipeRepository participacaoEquipeRepository, EquipeRepository equipeRepository, InscricaoModalidadeRepository inscricaoModalidadeRepository) {
         this.participacaoEquipeRepository = participacaoEquipeRepository;
         this.equipeRepository = equipeRepository;
         this.inscricaoModalidadeRepository = inscricaoModalidadeRepository;
     }
 
-    // Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
-    public record Entrada(
-            LocalDate dataEntrada,
-            LocalDate dataSaida,
-            boolean ativa,
-            Long equipeId,
-            Long inscricaoModalidadeId
-    ) {}
+    //Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
+    public record Entrada(LocalDate dataEntrada, LocalDate dataSaida, boolean ativa, Long equipeId, Long inscricaoModalidadeId) {}
 
-    public record Saida(
-            Long id,
-            LocalDate dataEntrada,
-            LocalDate dataSaida,
-            boolean ativa,
-            Long equipeId,
-            Long inscricaoModalidadeId
-    ) {}
+    public record Saida(Long id, LocalDate dataEntrada, LocalDate dataSaida, boolean ativa, Long equipeId, Long inscricaoModalidadeId) {}
 
     private void validar(Entrada dados) {
         if (dados == null) throw new IllegalArgumentException("Dados obrigatórios.");
@@ -54,32 +37,23 @@ public class ParticipacaoEquipeService {
 
     private void preencher(ParticipacaoEquipe entidade, Entrada dados) {
         validar(dados);
+        Equipe equipe = equipeRepository.findById(dados.equipeId()).orElseThrow(() -> new NoSuchElementException("Equipe não encontrada: " + dados.equipeId()));
+        InscricaoModalidade inscricao = inscricaoModalidadeRepository.findById(dados.inscricaoModalidadeId()).orElseThrow(() -> new NoSuchElementException("Inscrição não encontrada: " + dados.inscricaoModalidadeId()));
+        //A inscrição e a equipe precisam pertencer à mesma modalidade oferecida pelo clube.
+        Long clubeModalidadeEquipe = equipe.getClubeModalidade().getId();
+        Long clubeModalidadeInscricao = inscricao.getClubeModalidade().getId();
+        if (!clubeModalidadeEquipe.equals(clubeModalidadeInscricao)) {
+            throw new IllegalArgumentException("A inscrição e a equipe pertencem a modalidades " + "ou clubes diferentes.");
+        }
         entidade.setDataEntrada(dados.dataEntrada());
         entidade.setDataSaida(dados.dataSaida());
         entidade.setAtiva(dados.ativa());
-        Equipe equipe = null;
-        if (dados.equipeId() != null) {
-            equipe = equipeRepository.findById(dados.equipeId())
-                    .orElseThrow(() -> new NoSuchElementException("Equipe não encontrado: " + dados.equipeId()));
-        }
         entidade.setEquipe(equipe);
-        InscricaoModalidade inscricaoModalidade = null;
-        if (dados.inscricaoModalidadeId() != null) {
-            inscricaoModalidade = inscricaoModalidadeRepository.findById(dados.inscricaoModalidadeId())
-                    .orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + dados.inscricaoModalidadeId()));
-        }
-        entidade.setInscricaoModalidade(inscricaoModalidade);
+        entidade.setInscricaoModalidade(inscricao);
     }
 
     private Saida converter(ParticipacaoEquipe entidade) {
-        return new Saida(
-                entidade.getId(),
-                entidade.getDataEntrada(),
-                entidade.getDataSaida(),
-                entidade.isAtiva(),
-                entidade.getEquipe() == null ? null : entidade.getEquipe().getId(),
-                entidade.getInscricaoModalidade() == null ? null : entidade.getInscricaoModalidade().getId()
-        );
+        return new Saida(entidade.getId(), entidade.getDataEntrada(), entidade.getDataSaida(), entidade.isAtiva(), entidade.getEquipe() == null ? null : entidade.getEquipe().getId(), entidade.getInscricaoModalidade() == null ? null : entidade.getInscricaoModalidade().getId());
     }
 
     @Transactional
@@ -96,23 +70,20 @@ public class ParticipacaoEquipeService {
 
     @Transactional(readOnly = true)
     public Saida buscarPorId(Long id) {
-        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
+        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
         return converter(entidade);
     }
 
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
-        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
+        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
         preencher(entidade, dados);
         return converter(participacaoEquipeRepository.saveAndFlush(entidade));
     }
 
     @Transactional
     public void excluir(Long id) {
-        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
+        ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
         participacaoEquipeRepository.delete(entidade);
         participacaoEquipeRepository.flush();
     }

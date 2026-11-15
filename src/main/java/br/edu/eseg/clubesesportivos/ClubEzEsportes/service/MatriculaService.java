@@ -99,10 +99,27 @@ public class MatriculaService {
         return converterSaida(matricula);
     }
 
+    private void validarTransicaoStatus(StatusMatricula atual, StatusMatricula novo) {
+        //Manter o mesmo status não é uma transição inválida.
+        if (atual == novo) {
+            return;
+        }
+        //Matrículas canceladas ou encerradas são definitivas.
+        if (atual == StatusMatricula.CANCELADA || atual == StatusMatricula.ENCERRADA) {
+            throw new IllegalArgumentException("Não é permitido alterar uma matrícula " + atual);
+        }
+        //Matrículas ativas ou inadimplentes podem mudar para os outros estados definidos no enum.
+    }
+
     //Atualiza uma matrícula existente.
     @Transactional
     public SaidaMatricula atualizar(Long id, EntradaMatricula dados) {
         Matricula matricula = matriculaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Matrícula não encontrada: " + id));
+        //Valida os dados antes de consultar o novo status.
+        validarMatricula(dados);
+        //Impede mudanças de status proibidas.
+        validarTransicaoStatus(matricula.getStatus(), dados.status());
+        //Atualiza os dados e os relacionamentos.
         preencherMatricula(matricula, dados);
         return converterSaida(matriculaRepository.saveAndFlush(matricula));
     }

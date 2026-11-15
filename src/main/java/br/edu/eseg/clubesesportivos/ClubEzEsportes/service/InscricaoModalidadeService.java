@@ -12,35 +12,20 @@ import java.time.LocalTime;
 
 @Service
 public class InscricaoModalidadeService {
-
     private final InscricaoModalidadeRepository inscricaoModalidadeRepository;
     private final SocioRepository socioRepository;
     private final ClubeModalidadeRepository clubeModalidadeRepository;
 
-    public InscricaoModalidadeService(
-            InscricaoModalidadeRepository inscricaoModalidadeRepository,
-            SocioRepository socioRepository,
-            ClubeModalidadeRepository clubeModalidadeRepository) {
+    public InscricaoModalidadeService(InscricaoModalidadeRepository inscricaoModalidadeRepository, SocioRepository socioRepository, ClubeModalidadeRepository clubeModalidadeRepository) {
         this.inscricaoModalidadeRepository = inscricaoModalidadeRepository;
         this.socioRepository = socioRepository;
         this.clubeModalidadeRepository = clubeModalidadeRepository;
     }
 
-    // Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
-    public record Entrada(
-            LocalDate dataInscricao,
-            StatusInscricao status,
-            Long socioId,
-            Long clubeModalidadeId
-    ) {}
+    //Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
+    public record Entrada(LocalDate dataInscricao, StatusInscricao status, Long socioId, Long clubeModalidadeId) {}
 
-    public record Saida(
-            Long id,
-            LocalDate dataInscricao,
-            StatusInscricao status,
-            Long socioId,
-            Long clubeModalidadeId
-    ) {}
+    public record Saida(Long id, LocalDate dataInscricao, StatusInscricao status, Long socioId, Long clubeModalidadeId) {}
 
     private void validar(Entrada dados) {
         if (dados == null) throw new IllegalArgumentException("Dados obrigatórios.");
@@ -56,26 +41,18 @@ public class InscricaoModalidadeService {
         entidade.setStatus(dados.status());
         Socio socio = null;
         if (dados.socioId() != null) {
-            socio = socioRepository.findById(dados.socioId())
-                    .orElseThrow(() -> new NoSuchElementException("Socio não encontrado: " + dados.socioId()));
+            socio = socioRepository.findById(dados.socioId()).orElseThrow(() -> new NoSuchElementException("Socio não encontrado: " + dados.socioId()));
         }
         entidade.setSocio(socio);
         ClubeModalidade clubeModalidade = null;
         if (dados.clubeModalidadeId() != null) {
-            clubeModalidade = clubeModalidadeRepository.findById(dados.clubeModalidadeId())
-                    .orElseThrow(() -> new NoSuchElementException("ClubeModalidade não encontrado: " + dados.clubeModalidadeId()));
+            clubeModalidade = clubeModalidadeRepository.findById(dados.clubeModalidadeId()).orElseThrow(() -> new NoSuchElementException("ClubeModalidade não encontrado: " + dados.clubeModalidadeId()));
         }
         entidade.setClubeModalidade(clubeModalidade);
     }
 
     private Saida converter(InscricaoModalidade entidade) {
-        return new Saida(
-                entidade.getId(),
-                entidade.getDataInscricao(),
-                entidade.getStatus(),
-                entidade.getSocio() == null ? null : entidade.getSocio().getId(),
-                entidade.getClubeModalidade() == null ? null : entidade.getClubeModalidade().getId()
-        );
+        return new Saida(entidade.getId(), entidade.getDataInscricao(), entidade.getStatus(), entidade.getSocio() == null ? null : entidade.getSocio().getId(), entidade.getClubeModalidade() == null ? null : entidade.getClubeModalidade().getId());
     }
 
     @Transactional
@@ -92,23 +69,42 @@ public class InscricaoModalidadeService {
 
     @Transactional(readOnly = true)
     public Saida buscarPorId(Long id) {
-        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
+        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
         return converter(entidade);
+    }
+
+    private void validarTransicaoStatus(StatusInscricao atual, StatusInscricao novo) {
+        if (novo == null) {
+            throw new IllegalArgumentException("O status da inscrição é obrigatório");
+        }
+        if (atual == novo) {
+            return;
+        }
+        boolean permitido = switch (atual) {
+            case PENDENTE -> novo == StatusInscricao.ATIVA || novo == StatusInscricao.CANCELADA;
+            case ATIVA -> novo == StatusInscricao.CANCELADA;
+            case CANCELADA -> false;
+        };
+        if (!permitido) {
+            throw new IllegalArgumentException("Transição de inscrição não permitida: " + atual + " para " + novo);
+        }
     }
 
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
-        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
+        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
+        //Verifica se os dados são válidos
+        validar(dados);
+        //Impede transições de status não permitidas
+        validarTransicaoStatus(entidade.getStatus(), dados.status());
+        //Atualiza a inscrição somente após validar
         preencher(entidade, dados);
         return converter(inscricaoModalidadeRepository.saveAndFlush(entidade));
     }
 
     @Transactional
     public void excluir(Long id) {
-        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
+        InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
         inscricaoModalidadeRepository.delete(entidade);
         inscricaoModalidadeRepository.flush();
     }
