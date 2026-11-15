@@ -46,7 +46,18 @@ A migração deverá ser testada inicialmente em um banco separado, preservando 
 
 Em caso de falhas, será necessário corrigir as inconsistências e repetir a importação no ambiente de testes antes de aplicar o processo ao banco de destino.
 
-**Situação atual:** o arquivo `src/main/resources/db/schema.sql` foi executado com sucesso em um banco H2 vazio, criando as 17 tabelas e seus relacionamentos. A importação efetiva dos dados legados ainda não foi implementada ou executada. Esta seção documenta a estratégia prevista para essa atividade.
+**Situação da migração — 15/11/2026**
+
+Foi executada a migração dos dados legados para um banco H2 separado, denominado `TesteMigracao`, utilizando os scripts `schema.sql` e `migracao_legado_clubez.sql`.
+
+A execução resultou em **16.925 registros distribuídos por 13 tabelas**, com as 17 tabelas do modelo relacional disponíveis.
+
+Foram realizadas verificações de integridade entre pagamentos e matrículas, matrículas e seus respectivos sócios, clubes e planos, além de equipes e modalidades. Todas as cinco consultas retornaram zero referências inválidas.
+
+A aplicação Spring Boot também foi executada com o banco migrado, e quatro endpoints REST foram validados com sucesso: clubes (30 registros), sócios (1.000), matrículas (1.400) e pagamentos (4.200).
+
+As tabelas `inscricao_modalidade`, `participacao_equipe`, `perfil` e `usuario` permaneceram vazias após a migração. A importação foi validada em ambiente de teste, sem substituir o banco principal `ClubData`. Permanecem as limitações de mapeamento descritas no relatório de migração.
+
 ## 6. Como executar
 
 ### Pré-requisitos
