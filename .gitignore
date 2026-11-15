@@ -1,0 +1,16 @@
+# Maven
+target/
+
+# IntelliJ
+.idea/
+*.iml
+
+# Bancos de dados H2 locais
+*.mv.db
+*.trace.db
+
+# Logs
+*.log
+
+# Arquivos temporarios
+*.tmp
