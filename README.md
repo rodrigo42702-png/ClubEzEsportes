@@ -62,33 +62,62 @@ As tabelas `inscricao_modalidade`, `participacao_equipe`, `perfil` e `usuario` p
 
 ### Pré-requisitos
 
-- JDK 21
-- IntelliJ IDEA ou outra IDE compatível com projetos Maven
-- Maven configurado, caso a execução seja realizada pelo terminal
+- JDK 21 ou superior (o projeto compila com Java 21; a execução local também foi observada com Java 25).
+- IntelliJ IDEA ou outra IDE que suporte Maven; alternativamente, Maven instalado no terminal.
+- Acesso à Internet para baixar as dependências Maven e o CSS Bootstrap via CDN no navegador.
 
-### Execução pelo IntelliJ
+### Estrutura e diretório de execução
 
-1. Abrir a pasta que contém o arquivo `pom.xml`.
-2. Aguardar o carregamento das dependências Maven.
-3. Localizar a classe `ClubEzEsportesApplication`.
-4. Executar a classe principal.
-5. Verificar no console se a aplicação iniciou corretamente.
+O arquivo `pom.xml` fica na pasta interna `ClubEzEsportes/ClubEzEsportes/` do pacote de desenvolvimento utilizado. O banco H2 de desenvolvimento `ClubData` usa um caminho **relativo ao diretório de execução**, não ao local do `pom.xml`:
 
-Por padrão, a aplicação é executada em:
+```properties
+spring.datasource.url=jdbc:h2:file:./database/ClubData;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE SCHEMA IF NOT EXISTS APP\\;SET SCHEMA APP
+```
 
-`http://localhost:8080`
+**Atenção:** são duas barras invertidas (`\\`) no arquivo `.properties`, necessárias para preservar o escape do `;` da instrução `INIT`. O schema utilizado é `APP`. A configuração atual não utiliza `AUTO_SERVER=TRUE`.
 
-### Console H2
+Na execução de desenvolvimento verificada em 22/11/2026, a configuração do IntelliJ apontava o **Working directory** para a pasta externa `ClubEzEsportes/`, de modo a utilizar `ClubEzEsportes/database/ClubData.mv.db`, e os argumentos:
 
-Com a aplicação em execução, acessar:
+```text
+--clubez.bootstrap.enabled=false --server.port=8085
+```
 
-`http://localhost:8080/h2-console`
+Esse é um exemplo específico da máquina de desenvolvimento, **não um caminho obrigatório para outras instalações**. Se o projeto for executado a partir de outra pasta, o H2 pode criar um banco diferente. Confira a localização antes de executar migrações ou cadastrar usuários. Os arquivos `*.mv.db` e `*.trace.db` são ignorados pelo Git e não fazem parte do código publicado.
 
-Para o banco principal, utilizar a URL JDBC configurada em `application.properties`, incluindo os parâmetros necessários para selecionar o schema `APP`.
+### Iniciar a aplicação
+
+1. Abra no IntelliJ a pasta que contém o `pom.xml` e aguarde a importação do Maven.
+2. Configure o diretório de execução de acordo com o local onde deseja armazenar/abrir o banco H2.
+3. Execute a classe `ClubEzEsportesApplication`.
+4. No padrão `server.port=8080`, acesse `http://localhost:8080/login`; com `--server.port=8085`, acesse `http://localhost:8085/login`.
+5. Caso o banco esteja vazio, crie primeiro os perfis e usuários iniciais conforme a próxima subseção.
+
+### Primeiro acesso: criação de usuários iniciais
+
+O projeto **não possui credenciais padrão publicadas**. A classe `InicializadorUsuarios` só é executada com `clubez.bootstrap.enabled=true` e exige estas **quatro variáveis de ambiente**, definidas na configuração de execução do IntelliJ ou no ambiente do processo:
+
+```text
+CLUBEZ_ADMIN_EMAIL
+CLUBEZ_ADMIN_SENHA
+CLUBEZ_FUNCIONARIO_EMAIL
+CLUBEZ_FUNCIONARIO_SENHA
+```
+
+Os dois e-mails devem ser diferentes. Na primeira inicialização de um banco sem usuários, defina as quatro variáveis e use o argumento `--clubez.bootstrap.enabled=true`. O inicializador cria, quando necessário, os perfis `ADMIN` e `FUNCIONARIO` e as contas correspondentes com hash BCrypt. Usuários já existentes **não têm suas senhas atualizadas** pelo inicializador. Após confirmar o primeiro login, desligue o inicializador usando `--clubez.bootstrap.enabled=false` e remova as senhas da configuração de execução caso não sejam mais necessárias. **Não coloque senhas no README ou no Git.**
+
+### Console H2 e testes
+
+O console de desenvolvimento está configurado em `/h2-console` (por exemplo, `http://localhost:8085/h2-console` na execução verificada). Seu acesso efetivo depende também da configuração de segurança do servidor; a existência do caminho não garante acesso liberado pelo Spring Security. Não é recomendável expor o console em produção.
+
+Para executar os testes com Maven:
+
+```powershell
+mvn test
+```
+
+Ou utilize o ciclo `test` do painel Maven do IntelliJ, caso `mvn` não esteja disponível no PATH. O perfil de testes utiliza o H2 **em memória** (`jdbc:h2:mem:clubez_test`), separado do banco `ClubData`.
 
 ## 7. Endpoints REST
-
-Exemplos de endpoints disponíveis:
 
 | Recurso | Endpoint |
 |---|---|
@@ -106,32 +135,64 @@ Exemplos de endpoints disponíveis:
 | Perfis | `/api/perfis` |
 | Usuários | `/api/usuarios` |
 
-Os Controllers implementam operações REST usando os métodos HTTP GET, POST, PUT e DELETE.
+O sistema possui controllers REST para os 17 recursos do domínio, com operações de consulta e manutenção conforme cada controller. Com a configuração de segurança da terceira entrega, a API exige autenticação: as consultas GET em `/api/**` permitem `ADMIN` e `FUNCIONARIO`, **exceto** `/api/usuarios/**` e `/api/perfis/**`, reservadas a `ADMIN`. As demais operações `/api/**` exigem `ADMIN`. A autenticação HTTP Basic foi habilitada para testes REST. Requisições que modificam dados precisam respeitar a proteção CSRF, que permanece habilitada na configuração inspecionada.
 
 ## 8. Validações e tratamento de erros
 
-Foram implementadas validações de regras de negócio em diferentes Services, incluindo:
+Foram implementadas verificações em Services e Controllers relacionadas a campos obrigatórios, valores monetários, relacionamentos existentes, intervalos de datas e transições de estados. Nos testes manuais da segunda entrega foram observadas respostas como `200 OK`, `400 Bad Request`, `404 Not Found` e `204 No Content`, conforme o recurso e a operação. Também foram observados comportamentos de autorização distintos na terceira entrega, incluindo `403 Forbidden` ao tentar cadastrar clube como FUNCIONARIO.
 
-- Obrigatoriedade de nomes e identificadores.
-- Rejeição de valores monetários negativos.
-- Verificação de registros relacionados.
-- Validação de intervalos de datas e horários.
-- Tratamento de consultas a registros inexistentes.
+Esses resultados descrevem cenários exercitados; não significam cobertura automatizada de todos os endpoints.
 
-As APIs utilizam respostas HTTP como:
+## 9. Verificações realizadas nas entregas 1 e 2
 
-- `200 OK`: operação de consulta realizada.
-- `400 Bad Request`: dados inválidos.
-- `404 Not Found`: recurso não encontrado.
-- `204 No Content`: exclusão realizada.
-- `409 Conflict`: conflitos de integridade tratados pelos Controllers correspondentes.
+A modelagem evoluiu a base legada de 12 tabelas de negócio para 17 entidades/tabelas JPA. Em 15/11/2026, `schema.sql` e `migracao_legado_clubez.sql` foram executados **em banco H2 isolado**, `TesteMigracao`, sem substituir `ClubData`. O processo registrou 16.925 inserções em 13 tabelas (16.779 registros da fonte e 146 associações derivadas). As cinco consultas de integridade registradas não encontraram referências órfãs. Foram consultados via Spring Boot os totais migrados de 30 clubes, 1.000 sócios, 1.400 matrículas e 4.200 pagamentos.
 
-## 9. Verificações realizadas
+A auditoria documentada comparou 51 mapeamentos da planilha com o script SQL; essa checagem não equivale a uma auditoria integral do arquivo físico H2. Consulte `RELATORIO_MIGRACAO_CLUBEZ.md` e `AUDITORIA_MIGRACAO_CLUBEZ_2026-11-15.md` para limitações e detalhes.
 
-Durante o desenvolvimento, foram executados testes manuais utilizando PowerShell e os endpoints REST.
+A segunda entrega registrou quatro testes automatizados em `ClubeServiceTest` e testes manuais de CRUD e de transições de estado.
 
-Foram verificados cadastros, consultas, atualizações, exclusões e diferentes relacionamentos JPA.
+## 10. Terceira entrega — Fases 09 e 10 (22/11/2026)
 
-Também foram executados quatro testes automatizados de `ClubeService` utilizando JUnit, com resultados aprovados.
+### Fase 09 — Autenticação e autorização
 
-O script SQL de criação do banco foi executado separadamente, e a consulta ao `INFORMATION_SCHEMA` do H2 confirmou 17 tabelas criadas.
+- Spring Security integrado à aplicação e serviço `UsuarioDetailsService` para localizar contas por e-mail no H2.
+- Senhas armazenadas como hash BCrypt; `UsuarioService` recebe senha de entrada e não expõe `senhaHash` em seu DTO de saída.
+- Perfis `ADMIN` e `FUNCIONARIO` com regras de acesso no servidor; conta inativa não consegue autenticar.
+- Login personalizado em `/login`, redirecionamento para `/painel` após autenticação e logout com invalidação de sessão.
+- Inicializador opcional de perfis/contas via variáveis de ambiente, sem senha fixa no código.
+
+### Fase 10 — Interface dinâmica
+
+| Página | Rota | Funcionalidade implementada |
+|---|---|---|
+| Login | `/login` | Formulário HTML de autenticação com Thymeleaf |
+| Painel | `/painel` | E-mail e perfil autenticado; contadores de clubes, sócios e matrículas consultados no banco |
+| Clubes | `/clubes` | Listagem para usuários autenticados e formulário de cadastro disponível somente para ADMIN |
+| Matrículas | `/matriculas` | Listagem das matrículas por meio de `MatriculaService` |
+
+A interface usa Thymeleaf, Bootstrap 5.3.3 via CDN, CSS próprio e fragmento de menu lateral reutilizado nas telas. Os itens **Sócios** e **Pagamentos** aparecem como *em breve* no menu: suas páginas Web não foram concluídas nesta fase. As respectivas APIs REST já pertencem ao backend anterior.
+
+### Testes e evidências
+
+A execução de `mvn test` pelo Maven do IntelliJ, registrada durante o desenvolvimento da terceira entrega, terminou em `BUILD SUCCESS`, com **7 testes automatizados** aprovados: 4 em `ClubeServiceTest`, 2 em `ClubeSegurancaTest` (autorização do cadastro Web de clubes) e 1 em `UsuarioServiceTest` (hash BCrypt). Trata-se da última execução registrada na conversa; **não foi executada nova suíte dentro desta revisão documental**.
+
+Em 22/11/2026, os logs da execução local mostram H2 2.4.240 conectado ao schema `APP` e Tomcat iniciado na porta 8085. A interface foi acessada com usuário ADMIN e exibiu, no banco de desenvolvimento `ClubData`, **2 clubes, 1 sócio e 2 matrículas**. Esses números são dados de desenvolvimento, **não** o resultado da migração isolada.
+
+O commit `75ea78e` (*Entrega 3 - Autenticacao, autorizacao e interface web*) foi enviado à branch `main` do repositório `rodrigo42702-png/ClubEzEsportes` em 22/11/2026.
+
+### Limitações e melhorias futuras
+
+- A interface Web atualmente implementa somente login, painel, clubes e consulta de matrículas; faltam telas Web de sócios, pagamentos e outras rotinas.
+- A cobertura automatizada é parcial: sete testes executados, não uma validação de todos os 17 módulos.
+- O cadastro/atualização de usuário exige senha no `UsuarioService`; o fluxo de atualização de perfil sem troca de senha não está separado.
+- O caminho do banco H2 é relativo ao *Working directory*, o que exige cuidado ao mover ou abrir o projeto em outra IDE.
+- As opções de desenvolvimento (`ddl-auto=update`, console H2 e logs SQL detalhados) devem ser revisadas antes de qualquer implantação de produção.
+
+## 11. Referências internas de documentação
+
+- `RELATORIO_MIGRACAO_CLUBEZ.md`: execução e limitações da importação.
+- `AUDITORIA_MIGRACAO_CLUBEZ_2026-11-15.md`: confronto do legado com os mapeamentos.
+- `src/main/resources/db/schema.sql`: definição relacional de referência.
+- `src/main/resources/db/migracao_legado_clubez.sql`: script de importação para ambiente separado.
+
+**Observação:** a terceira entrega amplia o projeto da segunda sem reescrever as evidências históricas das fases 05–08. A avaliação acadêmica depende da análise do professor.
