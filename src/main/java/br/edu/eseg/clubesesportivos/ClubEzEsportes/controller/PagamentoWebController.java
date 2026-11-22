@@ -36,12 +36,9 @@ public class PagamentoWebController {
         return "pagamentos/lista";
     }
 
-    // Novos pagamentos sempre começam pendentes; não é permitido marcá-los como pagos por engano.
+    //Novos pagamentos sempre começam pendentes; não é permitido marcá-los como pagos por engano.
     @PostMapping("/pagamentos")
-    public String cadastrar(@RequestParam Long matriculaId,
-                            @RequestParam BigDecimal valor,
-                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimento,
-                            RedirectAttributes mensagens) {
+    public String cadastrar(@RequestParam Long matriculaId, @RequestParam BigDecimal valor, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimento, RedirectAttributes mensagens) {
         try {
             pagamentoService.cadastrar(new Entrada(null, vencimento, null, valor, StatusPagamento.PENDENTE, matriculaId));
             mensagens.addFlashAttribute("sucesso", "Pagamento pendente registrado!");
@@ -53,20 +50,36 @@ public class PagamentoWebController {
         return "redirect:/pagamentos";
     }
 
-    // Usa a regra de transição existente no PagamentoService (não muda status diretamente no banco).
+    //Usa a regra de transição existente no PagamentoService (não muda status diretamente no banco).
     @PostMapping("/pagamentos/{id}/status")
-    public String atualizarStatus(@PathVariable Long id,
-                                  @RequestParam StatusPagamento status,
-                                  RedirectAttributes mensagens) {
+    public String atualizarStatus(@PathVariable Long id, @RequestParam StatusPagamento status, RedirectAttributes mensagens) {
         try {
             Saida atual = pagamentoService.buscarPorId(id);
-            LocalDate pagoEm = atual.dataPagamento();
-            if (status == StatusPagamento.PAGO && pagoEm == null) pagoEm = LocalDate.now();
-            pagamentoService.atualizar(id, new Entrada(atual.codigoLegado(), atual.vencimento(), pagoEm,
-                    atual.valor(), status, atual.matriculaId()));
-            mensagens.addFlashAttribute("sucesso", "Situação do pagamento atualizada!");
+            //O Service é responsável por registrar a data, quando o pagamento passa para PAGO.
+            pagamentoService.atualizar(id, new Entrada(atual.codigoLegado(), atual.vencimento(), atual.dataPagamento(), atual.valor(), status, atual.matriculaId()));
         } catch (IllegalArgumentException | NoSuchElementException e) {
             mensagens.addFlashAttribute("erro", e.getMessage());
+        }
+        return "redirect:/pagamentos";
+    }
+
+    //Permite editar valor e vencimento de pagamentos pendentes.
+    @PostMapping("/pagamentos/{id}/editar")
+    public String editar(@PathVariable Long id, @RequestParam BigDecimal valor, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate vencimento, RedirectAttributes mensagens) {
+        try {
+            //Recupera os dados atuais do pagamento.
+            Saida atual = pagamentoService.buscarPorId(id);
+            //Somente pagamentos pendentes podem ser editados.
+            if (atual.status() != StatusPagamento.PENDENTE) {
+                throw new IllegalArgumentException("Somente pagamentos pendentes podem ser editados.");
+            }
+            //Mantém os demais campos e altera apenas valor e vencimento.
+            pagamentoService.atualizar(id, new Entrada(atual.codigoLegado(), vencimento, atual.dataPagamento(), valor, atual.status(), atual.matriculaId()));
+            mensagens.addFlashAttribute("sucesso", "Pagamento atualizado com sucesso!");
+        } catch (IllegalArgumentException | NoSuchElementException e) {
+            mensagens.addFlashAttribute("erro", e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            mensagens.addFlashAttribute("erro", "Não foi possível atualizar o pagamento.");
         }
         return "redirect:/pagamentos";
     }

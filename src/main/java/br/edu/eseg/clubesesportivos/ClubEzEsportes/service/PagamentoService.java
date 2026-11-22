@@ -9,6 +9,7 @@ import java.util.NoSuchElementException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Objects;
 
 @Service
 public class PagamentoService {
@@ -34,15 +35,15 @@ public class PagamentoService {
 
     private void preencher(Pagamento entidade, Entrada dados) {
         validar(dados);
+        //Primeiro verifica se a matrícula informada existe.
+        //Assim evitamos modificar a entidade antes dessa validação.
+        Matricula matricula = matriculaRepository.findById(dados.matriculaId()).orElseThrow(() -> new NoSuchElementException("Matricula não encontrada: " + dados.matriculaId()));
+        //Só altera os campos depois de encontrar a matrícula.
         entidade.setCodigoLegado(dados.codigoLegado());
         entidade.setVencimento(dados.vencimento());
         entidade.setDataPagamento(dados.dataPagamento());
         entidade.setValor(dados.valor());
         entidade.setStatus(dados.status());
-        Matricula matricula = null;
-        if (dados.matriculaId() != null) {
-            matricula = matriculaRepository.findById(dados.matriculaId()).orElseThrow(() -> new NoSuchElementException("Matricula não encontrado: " + dados.matriculaId()));
-        }
         entidade.setMatricula(matricula);
     }
 
@@ -86,18 +87,54 @@ public class PagamentoService {
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
         Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
-        //Verifica se os dados recebidos são válidos
+        //Valida os dados recebidos.
         validar(dados);
-        //Verifica se a mudança de status é permitida
+        //Verifica se a mudança de situação é permitida.
         validarTransicaoStatus(entidade.getStatus(), dados.status());
-        //Atualiza os dados do pagamento
+        //Confere se houve alteração nos dados financeiros ou cadastrais.
+        boolean alterouDados = !Objects.equals(entidade.getValor(), dados.valor()) || !Objects.equals(entidade.getVencimento(), dados.vencimento()) || !Objects.equals(entidade.getCodigoLegado(), dados.codigoLegado()) || !Objects.equals(entidade.getMatricula() == null ? null : entidade.getMatricula().getId(), dados.matriculaId());
+        //Os dados só podem ser editados enquanto o pagamento
+        //está PENDENTE e continuará PENDENTE.
+        if (alterouDados && (entidade.getStatus() != StatusPagamento.PENDENTE || dados.status() != StatusPagamento.PENDENTE)) {
+            throw new IllegalArgumentException("Somente pagamentos pendentes podem ter seus dados alterados.");
+        }
+        //Não permite reescrever a data de um pagamento já concluído.
+        if (entidade.getStatus() != StatusPagamento.PENDENTE && entidade.getStatus() != StatusPagamento.ATRASADO && !Objects.equals(entidade.getDataPagamento(), dados.dataPagamento())) {
+            throw new IllegalArgumentException("A data de pagamento de um registro concluído não pode ser alterada.");
+        }
+        //Guarda a situação e a data anteriores.
+        StatusPagamento statusAnterior = entidade.getStatus();
+        LocalDate dataAnterior = entidade.getDataPagamento();
+        //Verifica a data futura ANTES de alterar a entidade.
+        if ((statusAnterior == StatusPagamento.PENDENTE || statusAnterior == StatusPagamento.ATRASADO) && dados.status() == StatusPagamento.PAGO && dados.dataPagamento() != null && dados.dataPagamento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("A data do pagamento não pode estar no futuro.");
+        }
+        //Somente depois das validações altera os campos.
         preencher(entidade, dados);
+        //Ao confirmar um pagamento, registra automaticamente a data.
+        if ((statusAnterior == StatusPagamento.PENDENTE || statusAnterior == StatusPagamento.ATRASADO) && dados.status() == StatusPagamento.PAGO) {
+            //Se não foi informada uma data, usa a data atual.
+            //Se já existe uma data histórica, preserva essa informação.
+            LocalDate dataConfirmacao = dados.dataPagamento();
+            if (dataConfirmacao == null) {
+                dataConfirmacao = LocalDate.now();
+            }
+            entidade.setDataPagamento(dataConfirmacao);
+        }
+        //No estorno, mantém a data em que o pagamento ocorreu.
+        if (statusAnterior == StatusPagamento.PAGO && dados.status() == StatusPagamento.ESTORNADO) {
+            entidade.setDataPagamento(dataAnterior);
+        }
         return converter(pagamentoRepository.saveAndFlush(entidade));
     }
 
     @Transactional
     public void excluir(Long id) {
         Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
+        //Só permite excluir pagamentos que ainda estão pendentes.
+        if (entidade.getStatus() != StatusPagamento.PENDENTE) {
+            throw new IllegalArgumentException("Somente pagamentos pendentes podem ser excluídos.");
+        }
         pagamentoRepository.delete(entidade);
         pagamentoRepository.flush();
     }
