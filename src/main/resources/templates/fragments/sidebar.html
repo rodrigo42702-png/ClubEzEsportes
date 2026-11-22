@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+
+<!-- Menu lateral reutilizado pelas páginas do sistema -->
+<aside th:fragment="menu(paginaAtual)" class="ce-sidebar">
+
+    <!-- Logo do sistema -->
+    <a class="ce-sidebar__brand" th:href="@{/painel}">
+        Club<span>Ez</span>Esportes
+    </a>
+
+    <!-- Links de navegação -->
+    <nav class="ce-sidebar__nav">
+
+        <a th:href="@{/painel}"
+           th:classappend="${paginaAtual == 'painel'} ? ' ce-sidebar__link--active' : ''"
+           class="ce-sidebar__link">
+            Painel
+        </a>
+
+        <a th:href="@{/clubes}"
+           th:classappend="${paginaAtual == 'clubes'} ? ' ce-sidebar__link--active' : ''"
+           class="ce-sidebar__link">
+            Clubes
+        </a>
+
+        <a th:href="@{/matriculas}"
+           th:classappend="${paginaAtual == 'matriculas'} ? ' ce-sidebar__link--active' : ''"
+           class="ce-sidebar__link">
+            Matrículas
+        </a>
+
+        <!-- Funcionalidades que ainda terão páginas próprias -->
+        <span class="ce-sidebar__link ce-sidebar__link--disabled">
+            Sócios (em breve)
+        </span>
+
+        <span class="ce-sidebar__link ce-sidebar__link--disabled">
+            Pagamentos (em breve)
+        </span>
+
+    </nav>
+
+    <!-- Logout -->
+    <form class="ce-sidebar__logout"
+          th:action="@{/logout}"
+          method="post">
+
+        <button type="submit" class="ce-sidebar__link ce-sidebar__logout-btn">
+            Sair
+        </button>
+
+    </form>
+
+</aside>
+
+</body>
+</html>

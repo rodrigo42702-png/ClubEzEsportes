@@ -1,0 +1,264 @@
+/* ClubEzEsportes - Identidade visual e componentes (CSS puro)
+   Compatível com Bootstrap 5.3 e páginas Thymeleaf.
+   Carregue APÓS o CSS do Bootstrap para aplicar as personalizações.
+*/
+:root {
+  --golden-orange: #efa00b;
+  --lime-moss: #72b01d;
+  --bright-marine: #016fb9;
+  --red: #ff1d15;
+  --black: #02020b;
+  --ce-primary: #016fb9;
+  --ce-primary-hover: #005a97;
+  --ce-success: #497d10;
+  --ce-warning: #a56800;
+  --ce-danger: #c6221d;
+  --ce-bg: #f5f7fa;
+  --ce-surface: #ffffff;
+  --ce-text: #182231;
+  --ce-muted: #637182;
+  --ce-border: #dbe2e9;
+  --ce-radius: 12px;
+  --ce-shadow: 0 3px 12px rgba(16, 40, 66, .055);
+  --bs-primary: #016fb9;
+  --bs-primary-rgb: 1,111,185;
+  --bs-body-color: #182231;
+  --bs-body-bg: #f5f7fa;
+  --bs-border-color: #dbe2e9;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--ce-bg); color: var(--ce-text); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.55; }
+a { color: var(--ce-primary); }
+a:hover { color: var(--ce-primary-hover); }
+:focus-visible { outline: 3px solid rgba(1,111,185,.35); outline-offset: 2px; }
+.ce-app { min-height: 100vh; display: flex; flex-direction: column; }
+.ce-main { flex: 1; }
+.ce-container { width: min(1160px, calc(100% - 36px)); margin-inline: auto; }
+.ce-navbar { background: var(--black); color: white; border-bottom: 3px solid var(--ce-primary); }
+.ce-navbar__inner { min-height: 68px; display: flex; align-items: center; gap: 24px; justify-content: space-between; flex-wrap: wrap; padding-block: 10px; }
+.ce-brand { color: #fff; font-size: 1.2rem; font-weight: 800; text-decoration: none; letter-spacing: -.03em; }
+.ce-brand span { color: var(--golden-orange); }
+.ce-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ce-nav a { color: #e3e9f0; border-radius: 8px; text-decoration: none; font-weight: 550; padding: 9px 12px; }
+.ce-nav a:hover, .ce-nav a[aria-current='page'] { background: #202c3e; color: #fff; }
+.ce-page-header { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 16px; padding: 34px 0 24px; }
+.ce-eyebrow { text-transform: uppercase; color: var(--ce-primary); font-weight: 800; letter-spacing: .08em; font-size: .74rem; }
+.ce-title { margin: 2px 0 3px; font-size: clamp(1.55rem, 3vw, 2rem); font-weight: 800; letter-spacing: -.035em; }
+.ce-subtitle { margin: 0; color: var(--ce-muted); }
+.ce-card, .ce-panel { background: var(--ce-surface); border: 1px solid var(--ce-border); border-radius: var(--ce-radius); box-shadow: var(--ce-shadow); }
+.ce-card { padding: 22px; }
+.ce-card__title { margin: 0 0 5px; font-size: 1rem; font-weight: 750; }
+.ce-card__number { margin: 0; font-size: 2rem; font-weight: 800; letter-spacing: -.04em; }
+.ce-card__detail { margin: 0; color: var(--ce-muted); font-size: .85rem; }
+.ce-panel__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 18px 20px; gap: 10px; border-bottom: 1px solid var(--ce-border); }
+.ce-panel__title { margin: 0; font-size: 1.05rem; font-weight: 750; }
+.ce-panel__body { padding: 20px; }
+/* Buttons: use ce-btn in addition to (or instead of) Bootstrap btn */
+.ce-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 41px; padding: 9px 16px; border: 1px solid transparent; border-radius: 9px; font: inherit; font-weight: 700; font-size: .9rem; line-height: 1.25; text-decoration: none; cursor: pointer; transition: background .15s, transform .15s, box-shadow .15s, border-color .15s; white-space: nowrap; }
+.ce-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.ce-btn:disabled { opacity: .55; cursor: not-allowed; }
+.ce-btn--primary { background: var(--ce-primary); color: #fff; }
+.ce-btn--primary:hover { background: var(--ce-primary-hover); color: #fff; }
+.ce-btn--success { background: var(--ce-success); color: #fff; }
+.ce-btn--success:hover { background: #3a640d; color: #fff; }
+.ce-btn--warning { background: var(--golden-orange); color: var(--black); }
+.ce-btn--warning:hover { background: #d58b05; color: var(--black); }
+.ce-btn--danger { background: var(--ce-danger); color: #fff; }
+.ce-btn--danger:hover { background: #a61b17; color: #fff; }
+.ce-btn--outline { border-color: #b9c8d5; background: #fff; color: var(--ce-text); }
+.ce-btn--outline:hover { background: #f0f6fb; border-color: var(--ce-primary); color: var(--ce-primary); }
+.ce-btn--sm { min-height: 32px; padding: 6px 10px; font-size: .8rem; border-radius: 7px; }
+.ce-btn--block { width: 100%; }
+/* Forms */
+.ce-label { display: block; font-size: .9rem; font-weight: 700; margin-bottom: 6px; }
+.ce-input, .ce-select, .ce-textarea { display: block; width: 100%; min-height: 42px; padding: 9px 12px; border-radius: 9px; border: 1px solid #bdcad7; background: #fff; color: var(--ce-text); font: inherit; transition: border-color .15s, box-shadow .15s; }
+.ce-textarea { min-height: 98px; resize: vertical; }
+.ce-input:focus, .ce-select:focus, .ce-textarea:focus { outline: none; border-color: var(--ce-primary); box-shadow: 0 0 0 3px rgba(1,111,185,.15); }
+.ce-input:disabled, .ce-select:disabled { background: #eef1f4; cursor: not-allowed; }
+.ce-input[aria-invalid='true'], .ce-input.is-invalid, .ce-select.is-invalid { border-color: var(--ce-danger); }
+.ce-help { color: var(--ce-muted); font-size: .8rem; margin-top: 5px; }
+.ce-error { color: var(--ce-danger); font-size: .8rem; margin-top: 5px; font-weight: 650; }
+.ce-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+.ce-form-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; padding-top: 18px; margin-top: 20px; border-top: 1px solid var(--ce-border); }
+/* Tables */
+.ce-table-wrap { width: 100%; overflow-x: auto; }
+.ce-table { width: 100%; border-collapse: collapse; color: var(--ce-text); background: #fff; font-size: .9rem; }
+.ce-table thead th { background: #eef4f9; padding: 12px 15px; text-align: left; color: #31465a; font-weight: 750; border-bottom: 1px solid var(--ce-border); white-space: nowrap; }
+.ce-table tbody td { padding: 12px 15px; border-bottom: 1px solid #e8edf2; vertical-align: middle; }
+.ce-table tbody tr:hover { background: #f7fbfe; }
+.ce-table tbody tr:last-child td { border-bottom: 0; }
+.ce-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.ce-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 9px; font-size: .74rem; font-weight: 800; line-height: 1.3; background: #e9edf1; color: #425467; }
+.ce-badge--success { background: #eaf4df; color: #426d10; }
+.ce-badge--warning { background: #fff1d4; color: #865300; }
+.ce-badge--danger { background: #ffebea; color: #a91b16; }
+.ce-badge--info { background: #e4f1fa; color: #005a97; }
+/* Feedback and utilities */
+.ce-alert { border: 1px solid; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
+.ce-alert--success { background: #edf7e5; border-color: #cce5b1; color: #385e13; }
+.ce-alert--danger { background: #fff0ef; border-color: #f5c3c0; color: #9d221b; }
+.ce-alert--info { background: #edf6fc; border-color: #c4e3f6; color: #075a90; }
+.ce-alert--warning { background: #fff7e7; border-color: #f3dfb1; color: #78530a; }
+.ce-empty { text-align: center; padding: 36px 18px; color: var(--ce-muted); }
+.ce-footer { border-top: 1px solid var(--ce-border); color: var(--ce-muted); padding: 19px 0; font-size: .85rem; background: #fff; margin-top: 40px; }
+.ce-footer__inner { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.ce-login { width: min(100%, 430px); margin: 56px auto; }
+.ce-login .ce-card { padding: 30px; }
+/* Small Bootstrap button harmonization, only when Bootstrap button variants are used */
+.btn-primary { --bs-btn-bg: #016fb9; --bs-btn-border-color: #016fb9; --bs-btn-hover-bg: #005a97; --bs-btn-hover-border-color: #005a97; --bs-btn-active-bg: #005080; }
+@media (max-width: 700px) {
+  .ce-container { width: min(100% - 24px, 1160px); }
+  .ce-navbar__inner { align-items: flex-start; }
+  .ce-nav { width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .ce-nav a { white-space: nowrap; }
+  .ce-page-header { padding-top: 24px; }
+  .ce-form-grid { grid-template-columns: 1fr; }
+  .ce-panel__body { padding: 15px; }
+  .ce-card { padding: 17px; }
+  .ce-table { min-width: 650px; }
+  .ce-footer__inner { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+
+/* =========================================
+   MENU LATERAL - ClubEzEsportes
+   ========================================= */
+
+/* Estrutura principal com menu lateral */
+.ce-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Barra lateral */
+.ce-sidebar {
+    width: 250px;
+    min-width: 250px;
+    min-height: 100vh;
+    background: #20252b;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 15px;
+}
+
+/* Logo */
+.ce-sidebar__brand {
+    display: block;
+    padding: 0 10px 22px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid #39424b;
+    color: #ffffff;
+    font-size: 19px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.ce-sidebar__brand span {
+    color: var(--golden-orange);
+}
+
+.ce-sidebar__brand:hover {
+    color: #ffffff;
+}
+
+/* Links */
+.ce-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ce-sidebar__link {
+    display: block;
+    padding: 12px 14px;
+    border-radius: 9px;
+    color: #e3e9f0;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.ce-sidebar__nav a:hover {
+    background: #303b49;
+    color: #ffffff;
+}
+
+/* Página selecionada */
+.ce-sidebar__link--active {
+    background: #33465c;
+    color: #ffffff;
+    border-left: 3px solid var(--bright-marine);
+}
+
+/* Funcionalidades ainda indisponíveis */
+.ce-sidebar__link--disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+/* Logout no rodapé do menu */
+.ce-sidebar__logout {
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid #39424b;
+}
+
+.ce-sidebar__logout-btn {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.ce-sidebar__logout-btn:hover {
+    background: #303b49;
+    color: #ffffff;
+}
+
+/* Conteúdo principal */
+.ce-content {
+    flex: 1;
+    min-width: 0;
+    padding: 32px;
+}
+
+/* Adaptação para celulares */
+@media (max-width: 768px) {
+    .ce-layout {
+        flex-direction: column;
+    }
+
+    .ce-sidebar {
+        width: 100%;
+        min-width: 0;
+        min-height: auto;
+        padding: 15px;
+    }
+
+    .ce-sidebar__brand {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+    }
+
+    .ce-sidebar__nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .ce-sidebar__link {
+        padding: 9px 11px;
+    }
+
+    .ce-sidebar__logout {
+        margin-top: 15px;
+        padding-top: 10px;
+    }
+
+    .ce-content {
+        padding: 20px 15px;
+    }
+}

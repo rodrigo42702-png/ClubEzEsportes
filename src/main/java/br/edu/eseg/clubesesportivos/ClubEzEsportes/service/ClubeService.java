@@ -1,4 +1,3 @@
-
 package br.edu.eseg.clubesesportivos.ClubEzEsportes.service;
 
 import br.edu.eseg.clubesesportivos.ClubEzEsportes.model.Clube;
