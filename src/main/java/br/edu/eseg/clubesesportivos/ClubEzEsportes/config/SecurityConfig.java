@@ -28,12 +28,18 @@ public class SecurityConfig {
                     .requestMatchers("/api/**")
                     .hasRole("ADMIN")
 
-                    //Somente ADMIN pode cadastrar clubes pela interface web.
-                    .requestMatchers(HttpMethod.POST, "/clubes", "/socios", "/pagamentos", "/pagamentos/*/status")
+                    // Somente ADMIN pode realizar alterações pela interface Web.
+                    .requestMatchers(HttpMethod.POST, "/clubes", "/socios", "/socios/*/editar", "/socios/*/situacao", "/pagamentos", "/pagamentos/*/status", "/pagamentos/*/editar")
                     .hasRole("ADMIN")
 
+                    // Outras alterações pela interface Web exigem ADMIN.
+                    .requestMatchers(HttpMethod.POST, "/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PUT, "/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PATCH, "/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/**").hasRole("ADMIN")
                     //Demais páginas exigem autenticação.
                     .anyRequest().authenticated()
+
             )
 
             //Habilita login por formulário.
