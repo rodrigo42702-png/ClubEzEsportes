@@ -32,14 +32,17 @@
             Matrículas
         </a>
 
-        <!-- Funcionalidades que ainda terão páginas próprias -->
-        <span class="ce-sidebar__link ce-sidebar__link--disabled">
-            Sócios (em breve)
-        </span>
+        <a th:href="@{/socios}"
+           th:classappend="${paginaAtual == 'socios'} ? ' ce-sidebar__link--active' : ''"
+           class="ce-sidebar__link">
+            Sócios
+        </a>
 
-        <span class="ce-sidebar__link ce-sidebar__link--disabled">
-            Pagamentos (em breve)
-        </span>
+        <a th:href="@{/pagamentos}"
+           th:classappend="${paginaAtual == 'pagamentos'} ? ' ce-sidebar__link--active' : ''"
+           class="ce-sidebar__link">
+            Pagamentos
+        </a>
 
     </nav>
 

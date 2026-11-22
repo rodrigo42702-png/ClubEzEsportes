@@ -28,9 +28,9 @@ public class ClubeWebController {
     @PostMapping("/clubes")
     public String cadastrarClube(@RequestParam String nome, @RequestParam String cidade, @RequestParam String estado, RedirectAttributes redirectAttributes) {
         Clube clube = new Clube();
-        clube.setNome(nome);
-        clube.setCidade(cidade);
-        clube.setEstado(estado.toUpperCase());
+        clube.setNome(nome == null ? null : nome.trim());
+        clube.setCidade(cidade == null ? null : cidade.trim());
+        clube.setEstado(estado == null ? null : estado.trim().toUpperCase(java.util.Locale.ROOT));
         clube.setAtivo(true);
         try {
             clubeService.salvar(clube);

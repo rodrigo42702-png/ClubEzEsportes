@@ -196,3 +196,30 @@ O commit `75ea78e` (*Entrega 3 - Autenticacao, autorizacao e interface web*) foi
 - `src/main/resources/db/migracao_legado_clubez.sql`: script de importação para ambiente separado.
 
 **Observação:** a terceira entrega amplia o projeto da segunda sem reescrever as evidências históricas das fases 05–08. A avaliação acadêmica depende da análise do professor.
+
+
+## 12. Quarta entrega — fases 11 a 13 (preparação técnica)
+
+### Fase 11 — Integração full stack
+
+- A página inicial (`/`) redireciona para `/painel`, que exige autenticação.
+- Cadastro Web de clubes: formulário Thymeleaf → `ClubeWebController` → `ClubeService` (validação de nome, cidade e UF) → `ClubeRepository` → H2 → listagem.
+- Cadastro e consulta de sócios: `/socios`, com criação permitida somente para ADMIN e consulta para usuários autenticados.
+- Consulta e registro de pagamentos pendentes: `/pagamentos`; transições de status passam pelo `PagamentoService`, que aplica as regras de negócio.
+- O menu lateral inclui agora Sócios e Pagamentos. As rotas de escrita Web exigem ADMIN e CSRF.
+
+### Fase 12 — Testes e validação
+
+Foram adicionados arquivos de teste de integração MockMvc para fluxo de clubes/CSRF e acessos às páginas, e testes unitários para validações de sócios e transição de pagamento. **Os testes novos precisam ser executados pelo Maven do IntelliJ após aplicar este pacote**; não são apresentados aqui como resultados aprovados sem execução. A suíte anterior da terceira entrega tinha sete testes aprovados.
+
+Execute `mvn test` no módulo que contém `pom.xml`, ou use `Lifecycle > test` no painel Maven do IntelliJ. O perfil `test` usa H2 em memória, sem alterar o banco `ClubData`. Para validar manualmente, faça login como ADMIN, cadastre um clube, recarregue a listagem e confirme a persistência; repita como FUNCIONARIO e verifique o bloqueio. Valide ainda as páginas Sócios e Pagamentos, incluindo entradas inválidas e transições proibidas.
+
+### Fase 13 — Reprodutibilidade e defesa
+
+1. Importar a pasta com `pom.xml` no IntelliJ e selecionar JDK 21.
+2. Configurar a pasta de execução: o caminho H2 `./database/ClubData` depende do **Working directory**. Mantenha a pasta externa no ambiente anterior para preservar o banco existente. Em novas instalações, o arquivo H2 local não está no Git e será criado em local diferente conforme configuração.
+3. No primeiro acesso a um banco novo, configurar quatro variáveis `CLUBEZ_*` e habilitar temporariamente `--clubez.bootstrap.enabled=true` conforme a seção 6.
+4. Confirmar login, permissões, CRUD de clube, dados persistidos no H2, transições de pagamento e testes Maven.
+5. Apresentar os diagramas e explicar Controller → Service → Repository → H2, Spring Security e Thymeleaf.
+
+Limitações: as novas páginas de Sócios e Pagamentos cobrem **listagem/cadastro e alteração de situação de pagamento**, não CRUD Web completo; a API mantém as rotas REST já existentes. A validação de CPF no Service verifica comprimento/formato de 11 dígitos, não dígitos verificadores. Cobertura automatizada ainda não abrange todos os módulos. O console H2, os logs SQL e `ddl-auto=update` são voltados ao desenvolvimento; não são configurações de produção.

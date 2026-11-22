@@ -8,7 +8,6 @@ import java.util.List;
 
 @Service
 public class ClubeService {
-
     private final ClubeRepository clubeRepository;
 
     //Injeta o Repository pelo construtor
@@ -44,10 +43,13 @@ public class ClubeService {
         if (clube.getNome() == null || clube.getNome().isBlank()) {
             throw new IllegalArgumentException("O nome do clube é obrigatório.");
         }
+        //A cidade é necessária no cadastro pela interface e na API.
+        if (clube.getCidade() == null || clube.getCidade().isBlank()) {
+            throw new IllegalArgumentException("A cidade do clube é obrigatória.");
+        }
         //Verifica se o estado possui exatamente duas letras
         if (clube.getEstado() == null || !clube.getEstado().matches("[a-zA-Z]{2}")) {
             throw new IllegalArgumentException("O estado deve conter exatamente duas letras.");
         }
     }
-
 }

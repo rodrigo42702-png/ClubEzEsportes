@@ -14,26 +14,26 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {http.authorizeHttpRequests(auth -> auth
-                        //Permite acessar a página inicial e os arquivos visuais.
-                        .requestMatchers("/", "/login", "/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
+                    //Permite acessar a página inicial e os arquivos visuais.
+                    .requestMatchers("/", "/login", "/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
 
-                        //Somente ADMIN gerencia usuários e perfis.
-                        .requestMatchers("/api/usuarios/**", "/api/perfis/**").hasRole("ADMIN")
+                    //Somente ADMIN gerencia usuários e perfis.
+                    .requestMatchers("/api/usuarios/**", "/api/perfis/**").hasRole("ADMIN")
 
-                        // DMIN e FUNCIONARIO podem consultar dados.
-                        .requestMatchers(HttpMethod.GET, "/api/**")
-                        .hasAnyRole("ADMIN", "FUNCIONARIO")
+                    // DMIN e FUNCIONARIO podem consultar dados.
+                    .requestMatchers(HttpMethod.GET, "/api/**")
+                    .hasAnyRole("ADMIN", "FUNCIONARIO")
 
-                        //Outras operações da API exigem ADMIN.
-                        .requestMatchers("/api/**")
-                        .hasRole("ADMIN")
+                    //Outras operações da API exigem ADMIN.
+                    .requestMatchers("/api/**")
+                    .hasRole("ADMIN")
 
-                        //Somente ADMIN pode cadastrar clubes pela interface web.
-                        .requestMatchers(HttpMethod.POST, "/clubes")
-                        .hasRole("ADMIN")
+                    //Somente ADMIN pode cadastrar clubes pela interface web.
+                    .requestMatchers(HttpMethod.POST, "/clubes", "/socios", "/pagamentos", "/pagamentos/*/status")
+                    .hasRole("ADMIN")
 
-                        //Demais páginas exigem autenticação.
-                        .anyRequest().authenticated()
+                    //Demais páginas exigem autenticação.
+                    .anyRequest().authenticated()
             )
 
             //Habilita login por formulário.
@@ -46,11 +46,11 @@ public class SecurityConfig {
                     .permitAll()
             )
 
-                //Permite autenticação HTTP Basic para testes REST.
-                .httpBasic(Customizer.withDefaults())
+            //Permite autenticação HTTP Basic para testes REST.
+            .httpBasic(Customizer.withDefaults())
 
-                //Habilita logout e invalida a sessão.
-                .logout(logout -> logout.logoutSuccessUrl("/login?logout").invalidateHttpSession(true));
+            //Habilita logout e invalida a sessão.
+            .logout(logout -> logout.logoutSuccessUrl("/login?logout").invalidateHttpSession(true));
         return http.build();
     }
 
