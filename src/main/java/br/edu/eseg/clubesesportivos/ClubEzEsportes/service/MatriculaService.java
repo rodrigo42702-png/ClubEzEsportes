@@ -17,13 +17,17 @@ public class MatriculaService {
     private final ClubeRepository clubeRepository;
     private final SocioRepository socioRepository;
     private final PlanoRepository planoRepository;
+    private final PagamentoRepository pagamentoRepository;
+    private final InscricaoModalidadeRepository inscricaoModalidadeRepository;
 
     //Recebe os Repositories utilizados pela Matrícula.
-    public MatriculaService(MatriculaRepository matriculaRepository, ClubeRepository clubeRepository, SocioRepository socioRepository, PlanoRepository planoRepository) {
+    public MatriculaService(MatriculaRepository matriculaRepository, ClubeRepository clubeRepository, SocioRepository socioRepository, PlanoRepository planoRepository, PagamentoRepository pagamentoRepository, InscricaoModalidadeRepository inscricaoModalidadeRepository) {
         this.matriculaRepository = matriculaRepository;
         this.clubeRepository = clubeRepository;
         this.socioRepository = socioRepository;
         this.planoRepository = planoRepository;
+        this.pagamentoRepository = pagamentoRepository;
+        this.inscricaoModalidadeRepository = inscricaoModalidadeRepository;
     }
 
     //Representa os dados recebidos pela API.
@@ -78,11 +82,51 @@ public class MatriculaService {
         matricula.setPlano(plano);
     }
 
-    //Cadastra uma nova matrícula.
+    // Datas finais vazias indicam matrículas sem data de término.
+    private boolean periodosSeSobrepoem(Matricula nova, Matricula existente) {
+        if (existente.getDataInicio() == null) {
+            // Dado legado incompleto: bloquear novo vínculo até revisão manual.
+            return true;
+        }
+        boolean novaComecaAntesDoFimExistente = existente.getDataFim() == null
+                || !nova.getDataInicio().isAfter(existente.getDataFim());
+        boolean existenteComecaAntesDoFimNovo = nova.getDataFim() == null
+                || !existente.getDataInicio().isAfter(nova.getDataFim());
+        return novaComecaAntesDoFimExistente && existenteComecaAntesDoFimNovo;
+    }
+
+    // Cadastra uma nova matrícula.
     @Transactional
     public SaidaMatricula cadastrar(EntradaMatricula dados) {
         Matricula matricula = new Matricula();
         preencherMatricula(matricula, dados);
+        //Impede novas matrículas em planos desativados.
+        if (!matricula.getPlano().isAtivo()) {
+            throw new IllegalArgumentException("Não é permitido cadastrar matrícula em um plano inativo.");
+        }
+        // Impede contratos ativos sobrepostos para o mesmo sócio, clube e plano.
+        // Registros históricos já existentes não são alterados.
+        if (matricula.getStatus() == StatusMatricula.ATIVA) {
+            boolean duplicada = matriculaRepository
+                    .findBySocio_IdAndClube_IdAndStatus(
+                            matricula.getSocio().getId(), matricula.getClube().getId(), StatusMatricula.ATIVA)
+                    .stream()
+                    .anyMatch(existente ->
+                            matricula.getPlano().getId().equals(existente.getPlano().getId())
+                            && periodosSeSobrepoem(matricula, existente));
+            if (duplicada) {
+                throw new IllegalArgumentException(
+                        "Já existe matrícula ativa para este sócio, clube e plano no período informado.");
+            }
+        }
+        //Quando não há valor informado, utiliza o preço atual do plano. O preço fica registrado na matrícula e não acompanha reajustes futuros.
+        if (matricula.getValorContratado() == null) {
+            BigDecimal valorPlano = matricula.getPlano().getValorMensalidade();
+            if (valorPlano == null || valorPlano.signum() < 0) {
+                throw new IllegalArgumentException("O plano não possui um valor de mensalidade válido.");
+            }
+            matricula.setValorContratado(valorPlano);
+        }
         return converterSaida(matriculaRepository.saveAndFlush(matricula));
     }
 
@@ -100,15 +144,27 @@ public class MatriculaService {
     }
 
     private void validarTransicaoStatus(StatusMatricula atual, StatusMatricula novo) {
-        //Manter o mesmo status não é uma transição inválida.
-        if (atual == novo) {
-            return;
-        }
-        //Matrículas canceladas ou encerradas são definitivas.
+        //Impede alterações em matrículas finalizadas.
         if (atual == StatusMatricula.CANCELADA || atual == StatusMatricula.ENCERRADA) {
             throw new IllegalArgumentException("Não é permitido alterar uma matrícula " + atual);
         }
-        //Matrículas ativas ou inadimplentes podem mudar para os outros estados definidos no enum.
+
+        //Manter o mesmo status é permitido para matrículas não finalizadas.
+        if (atual == novo) {
+            return;
+        }
+
+        boolean transicaoPermitida = false;
+
+        if (atual == StatusMatricula.ATIVA) {
+            transicaoPermitida = novo == StatusMatricula.INADIMPLENTE || novo == StatusMatricula.CANCELADA || novo == StatusMatricula.ENCERRADA;
+        } else if (atual == StatusMatricula.INADIMPLENTE) {
+            transicaoPermitida = novo == StatusMatricula.ATIVA || novo == StatusMatricula.CANCELADA || novo == StatusMatricula.ENCERRADA;
+        }
+
+        if (!transicaoPermitida) {
+            throw new IllegalArgumentException("Transição de matrícula não permitida: " + atual + " para " + novo);
+        }
     }
 
     //Atualiza uma matrícula existente.
@@ -117,8 +173,35 @@ public class MatriculaService {
         Matricula matricula = matriculaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Matrícula não encontrada: " + id));
         //Valida os dados antes de consultar o novo status.
         validarMatricula(dados);
+        // Matrículas canceladas ou encerradas não podem ser alteradas.
+        if (matricula.getStatus() == StatusMatricula.CANCELADA || matricula.getStatus() == StatusMatricula.ENCERRADA) {
+            throw new IllegalArgumentException("Não é permitido alterar uma matrícula " + matricula.getStatus());
+        }
+        //O valor contratado é um registro histórico da matrícula.
+        //Depois do cadastro, não pode ser alterado.
+        BigDecimal valorAtual = matricula.getValorContratado();
+        BigDecimal valorNovo = dados.valorContratado();
+        boolean valorAlterado;
+        if (valorAtual == null || valorNovo == null) {
+            valorAlterado = valorAtual != valorNovo;
+        } else {
+            valorAlterado = valorAtual.compareTo(valorNovo) != 0;
+        }
+        if (valorAlterado) {
+            throw new IllegalArgumentException("O valor contratado não pode ser alterado após o cadastro.");
+        }
         //Impede mudanças de status proibidas.
         validarTransicaoStatus(matricula.getStatus(), dados.status());
+        // Impede a troca dos relacionamentos de uma matrícula existente.
+        if (!matricula.getClube().getId().equals(dados.clubeId())) {
+            throw new IllegalArgumentException("Não é permitido alterar o clube de uma matrícula.");
+        }
+        if (!matricula.getSocio().getId().equals(dados.socioId())) {
+            throw new IllegalArgumentException("Não é permitido alterar o sócio de uma matrícula.");
+        }
+        if (!matricula.getPlano().getId().equals(dados.planoId())) {
+            throw new IllegalArgumentException("Não é permitido alterar o plano de uma matrícula.");
+        }
         //Atualiza os dados e os relacionamentos.
         preencherMatricula(matricula, dados);
         return converterSaida(matriculaRepository.saveAndFlush(matricula));
@@ -128,6 +211,22 @@ public class MatriculaService {
     @Transactional
     public void excluir(Long id) {
         Matricula matricula = matriculaRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Matrícula não encontrada: " + id));
+
+        //Pagamentos são histórico financeiro e nunca devem ser apagados por exclusão da matrícula.
+        if (pagamentoRepository.existsByMatricula_Id(id)) {
+            throw new IllegalArgumentException("Não é permitido excluir matrícula com pagamentos vinculados.");
+        }
+
+        //A inscrição está ligada ao sócio e à oferta do clube, não à matrícula. Se existe inscrição não cancelada, precisamos preservar outra matrícula vigente no clube.
+        boolean possuiInscricoes = inscricaoModalidadeRepository.existsBySocio_IdAndClubeModalidade_Clube_IdAndStatusIn(matricula.getSocio().getId(), matricula.getClube().getId(), List.of(StatusInscricao.PENDENTE, StatusInscricao.ATIVA));
+
+        if (possuiInscricoes) {
+            boolean existeOutraMatriculaValida = matriculaRepository.findBySocio_IdAndClube_IdAndStatus(matricula.getSocio().getId(), matricula.getClube().getId(), StatusMatricula.ATIVA).stream().anyMatch(outra -> !id.equals(outra.getId()) && outra.verificarVigencia());
+
+            if (!existeOutraMatriculaValida) {
+                throw new IllegalArgumentException("Não é permitido excluir a única matrícula vigente que sustenta inscrições neste clube.");
+            }
+        }
         matriculaRepository.delete(matricula);
     }
 }

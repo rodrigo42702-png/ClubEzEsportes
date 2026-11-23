@@ -3,5 +3,8 @@ package br.edu.eseg.clubesesportivos.ClubEzEsportes.repository;
 import br.edu.eseg.clubesesportivos.ClubEzEsportes.model.ParticipacaoEquipe;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-// Operações de persistência de ParticipacaoEquipe.
-public interface ParticipacaoEquipeRepository extends JpaRepository<ParticipacaoEquipe, Long> {}
+//Operações de persistência de ParticipacaoEquipe.
+public interface ParticipacaoEquipeRepository extends JpaRepository<ParticipacaoEquipe, Long> {
+    long countByEquipe_IdAndAtivaTrue(Long equipeId);
+    boolean existsByEquipe_IdAndInscricaoModalidade_IdAndAtivaTrue(Long equipeId, Long inscricaoId);
+}

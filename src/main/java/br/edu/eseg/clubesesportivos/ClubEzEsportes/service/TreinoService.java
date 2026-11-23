@@ -12,46 +12,25 @@ import java.time.LocalTime;
 
 @Service
 public class TreinoService {
-
     private final TreinoRepository treinoRepository;
     private final EquipeRepository equipeRepository;
 
-    public TreinoService(
-            TreinoRepository treinoRepository,
-            EquipeRepository equipeRepository) {
+    public TreinoService(TreinoRepository treinoRepository, EquipeRepository equipeRepository) {
         this.treinoRepository = treinoRepository;
         this.equipeRepository = equipeRepository;
     }
 
-    // Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
-    public record Entrada(
-            String codigoLegado,
-            String clubeLegadoCodigo,
-            String modalidadeLegadoCodigo,
-            LocalDate data,
-            LocalTime horaInicio,
-            LocalTime horaFim,
-            String local,
-            boolean cancelado,
-            Long equipeId
-    ) {}
+    //Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
+    public record Entrada(String codigoLegado, String clubeLegadoCodigo, String modalidadeLegadoCodigo, LocalDate data, LocalTime horaInicio, LocalTime horaFim, String local, boolean cancelado, Long equipeId) {}
 
-    public record Saida(
-            Long id,
-            String codigoLegado,
-            String clubeLegadoCodigo,
-            String modalidadeLegadoCodigo,
-            LocalDate data,
-            LocalTime horaInicio,
-            LocalTime horaFim,
-            String local,
-            boolean cancelado,
-            Long equipeId
-    ) {}
+    public record Saida(Long id, String codigoLegado, String clubeLegadoCodigo, String modalidadeLegadoCodigo, LocalDate data, LocalTime horaInicio, LocalTime horaFim, String local, boolean cancelado, Long equipeId) {}
 
     private void validar(Entrada dados) {
         if (dados == null) throw new IllegalArgumentException("Dados obrigatórios.");
         if (dados.data() == null) throw new IllegalArgumentException("data inválido ou obrigatório.");
+        //Novos treinos precisam de equipe. Registros históricos possuem codigoLegado.
+        if ((dados.codigoLegado() == null || dados.codigoLegado().isBlank()) && dados.equipeId() == null)
+            throw new IllegalArgumentException("Treinos novos precisam de uma equipe.");
         if (dados.horaInicio() != null && dados.horaFim() != null && !dados.horaFim().isAfter(dados.horaInicio())) throw new IllegalArgumentException("horaFim deve ser após horaInicio.");
     }
 
@@ -67,25 +46,16 @@ public class TreinoService {
         entidade.setCancelado(dados.cancelado());
         Equipe equipe = null;
         if (dados.equipeId() != null) {
-            equipe = equipeRepository.findById(dados.equipeId())
-                    .orElseThrow(() -> new NoSuchElementException("Equipe não encontrado: " + dados.equipeId()));
+            equipe = equipeRepository.findById(dados.equipeId()).orElseThrow(() -> new NoSuchElementException("Equipe não encontrado: " + dados.equipeId()));
+        }
+        if (!dados.cancelado() && equipe != null && (!equipe.isAtiva() || equipe.getClubeModalidade() == null || !equipe.getClubeModalidade().isAtiva())) {
+            throw new IllegalArgumentException("Não é permitido agendar treino em equipe inativa.");
         }
         entidade.setEquipe(equipe);
     }
 
     private Saida converter(Treino entidade) {
-        return new Saida(
-                entidade.getId(),
-                entidade.getCodigoLegado(),
-                entidade.getClubeLegadoCodigo(),
-                entidade.getModalidadeLegadoCodigo(),
-                entidade.getData(),
-                entidade.getHoraInicio(),
-                entidade.getHoraFim(),
-                entidade.getLocal(),
-                entidade.isCancelado(),
-                entidade.getEquipe() == null ? null : entidade.getEquipe().getId()
-        );
+        return new Saida(entidade.getId(), entidade.getCodigoLegado(), entidade.getClubeLegadoCodigo(), entidade.getModalidadeLegadoCodigo(), entidade.getData(), entidade.getHoraInicio(), entidade.getHoraFim(),entidade.getLocal(), entidade.isCancelado(), entidade.getEquipe() == null ? null : entidade.getEquipe().getId());
     }
 
     @Transactional
@@ -102,23 +72,20 @@ public class TreinoService {
 
     @Transactional(readOnly = true)
     public Saida buscarPorId(Long id) {
-        Treino entidade = treinoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
+        Treino entidade = treinoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
         return converter(entidade);
     }
 
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
-        Treino entidade = treinoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
+        Treino entidade = treinoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
         preencher(entidade, dados);
         return converter(treinoRepository.saveAndFlush(entidade));
     }
 
     @Transactional
     public void excluir(Long id) {
-        Treino entidade = treinoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
+        Treino entidade = treinoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Treino não encontrado: " + id));
         treinoRepository.delete(entidade);
         treinoRepository.flush();
     }

@@ -53,6 +53,17 @@ public class PagamentoService {
 
     @Transactional
     public Saida cadastrar(Entrada dados) {
+        validar(dados);
+        // Todo pagamento novo começa pendente; a confirmação passa pela transição de status.
+        if (dados.status() != StatusPagamento.PENDENTE) {
+            throw new IllegalArgumentException("Um novo pagamento deve iniciar como PENDENTE.");
+        }
+        if (dados.dataPagamento() != null) {
+            throw new IllegalArgumentException("Pagamento pendente não pode ter data de pagamento.");
+        }
+        if (dados.valor() == null) {
+            throw new IllegalArgumentException("O valor do novo pagamento é obrigatório.");
+        }
         Pagamento entidade = new Pagamento();
         preencher(entidade, dados);
         return converter(pagamentoRepository.saveAndFlush(entidade));
@@ -89,6 +100,10 @@ public class PagamentoService {
         Pagamento entidade = pagamentoRepository.findById(id).orElseThrow(() -> new NoSuchElementException("Pagamento não encontrado: " + id));
         //Valida os dados recebidos.
         validar(dados);
+        //Um registro ainda pendente não pode conter data de quitação.
+        if (dados.status() == StatusPagamento.PENDENTE && dados.dataPagamento() != null) {
+            throw new IllegalArgumentException("Pagamento pendente não pode ter data de pagamento.");
+        }
         //Verifica se a mudança de situação é permitida.
         validarTransicaoStatus(entidade.getStatus(), dados.status());
         //Confere se houve alteração nos dados financeiros ou cadastrais.

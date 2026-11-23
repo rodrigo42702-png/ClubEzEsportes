@@ -47,6 +47,8 @@ public class IndicadorMensalService {
         if (dados.sociosAtivos() < 0) throw new IllegalArgumentException("sociosAtivos não pode ser negativo.");
         if (dados.receitaMensal() != null && dados.receitaMensal().signum() < 0) throw new IllegalArgumentException("receitaMensal não pode ser negativo.");
         if (dados.churnPercentual() != null && dados.churnPercentual().signum() < 0) throw new IllegalArgumentException("churnPercentual não pode ser negativo.");
+        if (dados.churnPercentual() != null && dados.churnPercentual().compareTo(BigDecimal.valueOf(100)) > 0)
+            throw new IllegalArgumentException("churnPercentual nao pode superar 100.");
         if (dados.clubeId() == null) throw new IllegalArgumentException("clubeId inválido ou obrigatório.");
     }
 

@@ -14,10 +14,13 @@ import java.time.LocalTime;
 public class ProdutoLojaService {
 
     private final ProdutoLojaRepository produtoLojaRepository;
+    private final VendaLojaRepository vendaLojaRepository;
 
     public ProdutoLojaService(
-            ProdutoLojaRepository produtoLojaRepository) {
+            ProdutoLojaRepository produtoLojaRepository,
+            VendaLojaRepository vendaLojaRepository) {
         this.produtoLojaRepository = produtoLojaRepository;
+        this.vendaLojaRepository = vendaLojaRepository;
     }
 
     // Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
@@ -84,6 +87,9 @@ public class ProdutoLojaService {
     public Saida atualizar(Long id, Entrada dados) {
         ProdutoLoja entidade = produtoLojaRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("ProdutoLoja não encontrado: " + id));
+        if (!java.util.Objects.equals(entidade.getCodigoLegado(), dados.codigoLegado())) {
+            throw new IllegalArgumentException("O codigo legado do produto nao pode ser alterado.");
+        }
         preencher(entidade, dados);
         return converter(produtoLojaRepository.saveAndFlush(entidade));
     }
@@ -92,6 +98,9 @@ public class ProdutoLojaService {
     public void excluir(Long id) {
         ProdutoLoja entidade = produtoLojaRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("ProdutoLoja não encontrado: " + id));
+        if (vendaLojaRepository.existsByProdutoLoja_Id(id)) {
+            throw new IllegalArgumentException("Produto possui vendas registradas e nao pode ser excluido.");
+        }
         produtoLojaRepository.delete(entidade);
         produtoLojaRepository.flush();
     }

@@ -45,6 +45,33 @@ public class ParticipacaoEquipeService {
         if (!clubeModalidadeEquipe.equals(clubeModalidadeInscricao)) {
             throw new IllegalArgumentException("A inscrição e a equipe pertencem a modalidades " + "ou clubes diferentes.");
         }
+        //Não permitir participante ativo com inscrição ou equipe inativa.
+        if (dados.ativa()) {
+            if (!equipe.isAtiva() || equipe.getClubeModalidade() == null
+                    || !equipe.getClubeModalidade().isAtiva()) {
+                throw new IllegalArgumentException("Equipe ou modalidade oferecida está inativa.");
+            }
+            if (inscricao.getStatus() != StatusInscricao.ATIVA) {
+                throw new IllegalArgumentException("A inscrição precisa estar ATIVA.");
+            }
+            if (dados.dataSaida() != null) {
+                throw new IllegalArgumentException("Participação ativa não pode ter data de saída.");
+            }
+            boolean jaParticipa = participacaoEquipeRepository
+                    .existsByEquipe_IdAndInscricaoModalidade_IdAndAtivaTrue(equipe.getId(), inscricao.getId());
+            boolean outraParticipacao = jaParticipa && (entidade.getId() == null
+                    || !equipe.getId().equals(entidade.getEquipe().getId())
+                    || !inscricao.getId().equals(entidade.getInscricaoModalidade().getId()));
+            if (outraParticipacao) {
+                throw new IllegalArgumentException("Esta inscrição já participa ativamente da equipe.");
+            }
+            long ocupadas = participacaoEquipeRepository.countByEquipe_IdAndAtivaTrue(equipe.getId());
+            if (entidade.getId() != null && entidade.isAtiva()
+                    && equipe.getId().equals(entidade.getEquipe().getId())) ocupadas--;
+            if (equipe.getCapacidadeMaxima() <= ocupadas) {
+                throw new IllegalArgumentException("Equipe sem vagas disponíveis.");
+            }
+        }
         entidade.setDataEntrada(dados.dataEntrada());
         entidade.setDataSaida(dados.dataSaida());
         entidade.setAtiva(dados.ativa());
@@ -77,6 +104,13 @@ public class ParticipacaoEquipeService {
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
         ParticipacaoEquipe entidade = participacaoEquipeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("ParticipacaoEquipe não encontrado: " + id));
+        validar(dados);
+        if (!entidade.getEquipe().getId().equals(dados.equipeId()) || !entidade.getInscricaoModalidade().getId().equals(dados.inscricaoModalidadeId())) {
+            throw new IllegalArgumentException("Não é permitido trocar equipe ou inscrição de uma participação.");
+        }
+        if (!entidade.isAtiva() && dados.ativa()) {
+            throw new IllegalArgumentException("Participação encerrada não pode ser reativada.");
+        }
         preencher(entidade, dados);
         return converter(participacaoEquipeRepository.saveAndFlush(entidade));
     }

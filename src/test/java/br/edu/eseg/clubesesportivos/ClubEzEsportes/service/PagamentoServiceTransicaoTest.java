@@ -245,4 +245,41 @@ class PagamentoServiceTransicaoTest {
         verify(pagamentos, never()).delete(any(Pagamento.class));
         verify(pagamentos, never()).flush();
     }
+
+    @Test
+    void naoDeveCriarPagamentoJaPago() {
+        PagamentoService.Entrada dados = new PagamentoService.Entrada(null, LocalDate.now(), LocalDate.now(), new BigDecimal("100.00"), StatusPagamento.PAGO, 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.cadastrar(dados));
+        verifyNoInteractions(pagamentos, matriculas);
+    }
+
+    @Test
+    void naoDeveCadastrarPendenteComDataPagamento() {
+        PagamentoService.Entrada dados = new PagamentoService.Entrada(null, LocalDate.now().plusDays(5), LocalDate.now(), new BigDecimal("100.00"), StatusPagamento.PENDENTE, 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.cadastrar(dados));
+        verifyNoInteractions(pagamentos, matriculas);
+    }
+
+    @Test
+    void naoDeveCadastrarSemValor() {
+        PagamentoService.Entrada dados = new PagamentoService.Entrada(null, LocalDate.now(), null, null, StatusPagamento.PENDENTE, 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.cadastrar(dados));
+        verifyNoInteractions(pagamentos, matriculas);
+    }
+
+    @Test
+    void naoDeveInserirDataEmPagamentoAindaPendente() {
+        Pagamento pagamento = new Pagamento();
+        pagamento.setStatus(StatusPagamento.PENDENTE);
+        pagamento.setValor(new BigDecimal("50.00"));
+        Matricula matricula = new Matricula();
+        matricula.setId(1L);
+        pagamento.setMatricula(matricula);
+        when(pagamentos.findById(5L)).thenReturn(Optional.of(pagamento));
+
+        PagamentoService.Entrada dados = new PagamentoService.Entrada(null, null, LocalDate.now(), new BigDecimal("50.00"), StatusPagamento.PENDENTE, 1L);
+        assertThrows(IllegalArgumentException.class, () -> service.atualizar(5L, dados));
+        assertNull(pagamento.getDataPagamento());
+        verify(pagamentos, never()).saveAndFlush(any());
+    }
 }

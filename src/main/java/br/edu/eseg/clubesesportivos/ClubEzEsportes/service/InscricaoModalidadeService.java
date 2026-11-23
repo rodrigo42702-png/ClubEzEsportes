@@ -6,20 +6,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 
 @Service
 public class InscricaoModalidadeService {
     private final InscricaoModalidadeRepository inscricaoModalidadeRepository;
     private final SocioRepository socioRepository;
     private final ClubeModalidadeRepository clubeModalidadeRepository;
+    private final MatriculaRepository matriculaRepository;
 
-    public InscricaoModalidadeService(InscricaoModalidadeRepository inscricaoModalidadeRepository, SocioRepository socioRepository, ClubeModalidadeRepository clubeModalidadeRepository) {
+    public InscricaoModalidadeService(InscricaoModalidadeRepository inscricaoModalidadeRepository, SocioRepository socioRepository, ClubeModalidadeRepository clubeModalidadeRepository, MatriculaRepository matriculaRepository) {
         this.inscricaoModalidadeRepository = inscricaoModalidadeRepository;
         this.socioRepository = socioRepository;
         this.clubeModalidadeRepository = clubeModalidadeRepository;
+        this.matriculaRepository = matriculaRepository;
     }
 
     //Contratos JSON: relacionamentos são enviados por IDs, não objetos JPA.
@@ -55,10 +55,43 @@ public class InscricaoModalidadeService {
         return new Saida(entidade.getId(), entidade.getDataInscricao(), entidade.getStatus(), entidade.getSocio() == null ? null : entidade.getSocio().getId(), entidade.getClubeModalidade() == null ? null : entidade.getClubeModalidade().getId());
     }
 
+    //Verifica se o sócio possui matrícula ativa e vigente no clube.
+    private void validarMatriculaDoSocio(InscricaoModalidade inscricao) {
+        Long socioId = inscricao.getSocio().getId();
+        Long clubeId = inscricao.getClubeModalidade().getClube().getId();
+
+        //Busca matrículas ativas do sócio no clube da modalidade.
+        List<Matricula> matriculas = matriculaRepository.findBySocio_IdAndClube_IdAndStatus(socioId, clubeId, StatusMatricula.ATIVA);
+
+        //Verifica se pelo menos uma matrícula está vigente.
+        boolean possuiMatriculaValida = matriculas.stream().anyMatch(Matricula::verificarVigencia);
+
+        if (!possuiMatriculaValida) {
+            throw new IllegalArgumentException("O sócio precisa possuir matrícula ativa e vigente neste clube.");
+        }
+    }
+
+    // Não representa a quantidade de vagas restantes: apenas valida a disponibilidade básica.
+    private void validarOfertaAtiva(InscricaoModalidade inscricao) {
+        ClubeModalidade oferta = inscricao.getClubeModalidade();
+        if (!oferta.isAtiva() || oferta.getCapacidadeMaxima() <= 0) {
+            throw new IllegalArgumentException("A modalidade não está disponível para inscrições.");
+        }
+    }
+
     @Transactional
     public Saida cadastrar(Entrada dados) {
         InscricaoModalidade entidade = new InscricaoModalidade();
+        //Preenche e valida os dados obrigatórios.
         preencher(entidade, dados);
+        //Inscrições novas começam pendentes. Outras situações dependem de transição.
+        if (entidade.getStatus() != StatusInscricao.PENDENTE) {
+            throw new IllegalArgumentException("Uma nova inscrição deve iniciar como PENDENTE.");
+        }
+        validarOfertaAtiva(entidade);
+        //Confirma que o sócio está matriculado no clube.
+        validarMatriculaDoSocio(entidade);
+        //Salva somente quando as validações forem aprovadas.
         return converter(inscricaoModalidadeRepository.saveAndFlush(entidade));
     }
 
@@ -93,12 +126,32 @@ public class InscricaoModalidadeService {
     @Transactional
     public Saida atualizar(Long id, Entrada dados) {
         InscricaoModalidade entidade = inscricaoModalidadeRepository.findById(id).orElseThrow(() -> new NoSuchElementException("InscricaoModalidade não encontrado: " + id));
-        //Verifica se os dados são válidos
         validar(dados);
-        //Impede transições de status não permitidas
+
+        //Registro cancelado é definitivo, mesmo que seja enviado CANCELADA novamente.
+        if (entidade.getStatus() == StatusInscricao.CANCELADA) {
+            throw new IllegalArgumentException("Não é permitido alterar uma inscrição CANCELADA.");
+        }
+        if (!entidade.getSocio().getId().equals(dados.socioId())) {
+            throw new IllegalArgumentException("Não é permitido alterar o sócio de uma inscrição.");
+        }
+        if (!entidade.getClubeModalidade().getId().equals(dados.clubeModalidadeId())) {
+            throw new IllegalArgumentException("Não é permitido alterar a modalidade de uma inscrição.");
+        }
+        if (!entidade.getDataInscricao().equals(dados.dataInscricao())) {
+            throw new IllegalArgumentException("Não é permitido alterar a data original da inscrição.");
+        }
+
         validarTransicaoStatus(entidade.getStatus(), dados.status());
-        //Atualiza a inscrição somente após validar
-        preencher(entidade, dados);
+
+        //Para ativar uma inscrição, exige que oferta e matrícula continuem válidas.
+        if (dados.status() == StatusInscricao.ATIVA) {
+            validarOfertaAtiva(entidade);
+            validarMatriculaDoSocio(entidade);
+        }
+
+        //Os vínculos permanecem intactos; atualizamos somente a situação.
+        entidade.setStatus(dados.status());
         return converter(inscricaoModalidadeRepository.saveAndFlush(entidade));
     }
 
